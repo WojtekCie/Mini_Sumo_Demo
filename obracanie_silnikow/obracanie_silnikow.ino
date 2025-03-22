@@ -28,7 +28,9 @@ int AnColorSenLeftVal = 0;            // Zmierzona wartość lewego czujnika kol
 int AnColorSenRightVal = 0;           // Zmierzona wartość prawego czujnika koloru
 int colorBorder = 300;                // Manualnie ustawiana granica od której robot odrużnia biały od czarnego (jeśli wartość zczytana jest mniejsza od granicy to biały)
 int turnTime = 800;                    // Czas ile ma się obracać [ms]
-int operationTime = 0;                // Zmienna urzywana do zliczania czasu wykonywania komendy [ms]
+int pushTime = 100;
+int retreatTime = 400;
+unsigned long  operationTime = 0;                // Zmienna urzywana do zliczania czasu wykonywania komendy [ms]
 bool buttonMemory = 0;                // Przycisk potrzebuje aż 3 zmienny aby działać w wymagany sposób (właczać dopiero po puszczeniu, wyłączać odrazu po kliknieciu)
 bool buttonPressed = false;           //
 bool highVoltageButtonMemory = false; // Zmienna potrzebna do zarządzania przyciskiem
@@ -38,6 +40,8 @@ bool SafetyManeuver = false;          // Zmienna deklarująca czy trwają aktual
 enum class SafetyMove{
   TurnLeft,                         // Zakręt w lewo wymagany przez białą linie
   TurnRight,                        // Zakręt w prawo wymagany przez białą linie
+  absolutePush,
+  retreat,
 };
 SafetyMove executing;
 
@@ -80,10 +84,26 @@ void BattleModeOnOff(){
 
 // Updates variables related with movement priority
 void updateMovement(){
-  int actualManuverDurrations = millis() - operationTime ;
-  //Serial.println(actualManuverDurrations);  //Loop trwa 6-8ms
-  if(SafetyManeuver && actualManuverDurrations>turnTime){
+  unsigned long actualManuverDurrations = millis() - operationTime ;
+  Serial.println(actualManuverDurrations);  //Loop trwa 6-8ms | Blind Search 5-15ms
+  if(SafetyManeuver && actualManuverDurrations>turnTime && (executing == SafetyMove::TurnLeft || executing == SafetyMove::TurnRight)){
     SafetyManeuver = false;
+  }
+  if(SafetyManeuver && actualManuverDurrations>retreatTime && executing == SafetyMove::retreat){
+    SafetyManeuver = false;
+  }
+  if(SafetyManeuver && actualManuverDurrations>pushTime && executing == SafetyMove::absolutePush){
+    operationTime = millis();
+    actualManuverDurrations = millis() - operationTime;
+    executing = SafetyMove::retreat;
+    Serial.println("retreat");
+  }
+
+  if(!SafetyManeuver && DistToOb<10 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
+    operationTime = millis();
+    SafetyManeuver = true;
+    executing = SafetyMove::absolutePush;
+    Serial.println("absolutePush");
   }
   if(!SafetyManeuver && AnColorSenLeftVal<colorBorder){
     operationTime = millis();
@@ -106,6 +126,12 @@ void chooseMovement(){
         break;
       case SafetyMove::TurnRight:
         turnRight();
+        break;
+      case SafetyMove::absolutePush:
+        forward();
+        break;
+      case SafetyMove::retreat:
+        back();
         break;
     }
   }else{
@@ -165,7 +191,14 @@ void forward(){
   mRback = false;
   mLSpeed = 255;
   mRSpeed = 255;
-  //Serial.println("Forward");
+  Serial.println("Forward");
+}
+void back(){
+  mLback = true;
+  mRback = true;
+  mLSpeed = 255;
+  mRSpeed = 255;
+  Serial.println("Back");
 }
 // ----- End Movement -----
 
