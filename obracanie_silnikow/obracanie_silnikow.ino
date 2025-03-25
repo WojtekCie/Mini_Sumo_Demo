@@ -32,9 +32,12 @@ int TimeMultiplier = 3;               // Zmienna służąca do wydłużania czas
 int maxSpeed = 80;                   // Maksymalna prędkość z którą robot jedzie, można zmieniac podczas testów
 
 int turnTime = 400*TimeMultiplier;                   // Czas ile ma się obracać [ms]
+int minTurnTime = 300*TimeMultiplier;
+int maxTurnTime = 500*TimeMultiplier;
 int pushTime = 40*TimeMultiplier;
-int retreatTime = 400;
+int retreatTime = 400*TimeMultiplier;
 int stepBackBeforeTurnTime = 200*TimeMultiplier;
+
 unsigned long  operationTime = 0;                // Zmienna urzywana do zliczania czasu wykonywania komendy [ms]
 bool buttonMemory = 0;                // Przycisk potrzebuje aż 3 zmienny aby działać w wymagany sposób (właczać dopiero po puszczeniu, wyłączać odrazu po kliknieciu)
 bool buttonPressed = false;           //
@@ -123,6 +126,7 @@ void updateMovement(){
     executing = SafetyMove::stepBack;                    // Inicjacja cofnięcia przed obrotem
     if(AnColorSenLeftVal < colorBorder){AnLeftColorMemory = true;}
     if(AnColorSenRightVal < colorBorder){AnRightColorMemory = true;}
+    turnTime = random(minTurnTime,maxTurnTime);          // Losowanie czasu skrętu, aby ruch robota był bardziej niepowtarzalny
     Serial.println("stepBack before turn");
   }
   if(SafetyManeuver && actualManuverDurrations>stepBackBeforeTurnTime && executing == SafetyMove::stepBack && AnLeftColorMemory){
