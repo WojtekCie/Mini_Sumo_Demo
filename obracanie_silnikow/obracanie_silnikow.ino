@@ -26,22 +26,30 @@ float AnDistSenVal = 0;               // Zmierzona wartość czujnika odległoś
 float DistToOb = 0;                   // Odległość do obiektu [cm]
 int AnColorSenLeftVal = 0;            // Zmierzona wartość lewego czujnika koloru
 int AnColorSenRightVal = 0;           // Zmierzona wartość prawego czujnika koloru
-int colorBorder = 300;                // Manualnie ustawiana granica od której robot odrużnia biały od czarnego (jeśli wartość zczytana jest mniejsza od granicy to biały)
-int turnTime = 800;                    // Czas ile ma się obracać [ms]
-int pushTime = 100;
+int colorBorder = 500;                // Manualnie ustawiana granica od której robot odrużnia biały od czarnego (jeśli wartość zczytana jest mniejsza od granicy to biały)
+
+int TimeMultiplier = 3;               // Zmienna służąca do wydłużania czasów reakcji, pomocna w analizie jazdy robota
+int maxSpeed = 80;                   // Maksymalna prędkość z którą robot jedzie, można zmieniac podczas testów
+
+int turnTime = 400*TimeMultiplier;                   // Czas ile ma się obracać [ms]
+int pushTime = 40*TimeMultiplier;
 int retreatTime = 400;
+int stepBackBeforeTurnTime = 200*TimeMultiplier;
 unsigned long  operationTime = 0;                // Zmienna urzywana do zliczania czasu wykonywania komendy [ms]
 bool buttonMemory = 0;                // Przycisk potrzebuje aż 3 zmienny aby działać w wymagany sposób (właczać dopiero po puszczeniu, wyłączać odrazu po kliknieciu)
 bool buttonPressed = false;           //
 bool highVoltageButtonMemory = false; // Zmienna potrzebna do zarządzania przyciskiem
 bool BattleMode = false;              // Odpowiada za stan rbota  T/F -> Walka na ringu/Spoczynek
 bool SafetyManeuver = false;          // Zmienna deklarująca czy trwają aktualnie manewry które nie mogą być przerwane
-          
+bool AnLeftColorMemory = false;
+bool AnRightColorMemory = false;     // Pamięć przekroczenia białej lini, pomaga rozróżnić w którą strone ma się obrócić po wycofaniu          
+
 enum class SafetyMove{
   TurnLeft,                         // Zakręt w lewo wymagany przez białą linie
   TurnRight,                        // Zakręt w prawo wymagany przez białą linie
   absolutePush,
   retreat,
+  stepBack,
 };
 SafetyMove executing;
 
@@ -85,37 +93,49 @@ void BattleModeOnOff(){
 // Updates variables related with movement priority
 void updateMovement(){
   unsigned long actualManuverDurrations = millis() - operationTime ;
-  Serial.println(actualManuverDurrations);  //Loop trwa 6-8ms | Blind Search 5-15ms
+  //Serial.println(actualManuverDurrations);  //Loop trwa 6-8ms | Blind Search 5-15ms
   if(SafetyManeuver && actualManuverDurrations>turnTime && (executing == SafetyMove::TurnLeft || executing == SafetyMove::TurnRight)){
     SafetyManeuver = false;
+    AnLeftColorMemory = 0;
+    AnRightColorMemory = 0;
   }
   if(SafetyManeuver && actualManuverDurrations>retreatTime && executing == SafetyMove::retreat){
     SafetyManeuver = false;
   }
   if(SafetyManeuver && actualManuverDurrations>pushTime && executing == SafetyMove::absolutePush){
-    operationTime = millis();
-    actualManuverDurrations = millis() - operationTime;
-    executing = SafetyMove::retreat;
+    operationTime = millis();       
+    actualManuverDurrations = millis() - operationTime ;    
+    executing = SafetyMove::retreat;             // Przechodzimy z pchnięcia na wycofanie
     Serial.println("retreat");
   }
-
   if(!SafetyManeuver && DistToOb<10 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
     operationTime = millis();
+    actualManuverDurrations = millis() - operationTime ;
     SafetyManeuver = true;
-    executing = SafetyMove::absolutePush;
+    executing = SafetyMove::absolutePush;               // Inicjacja pchnięcia
     Serial.println("absolutePush");
   }
-  if(!SafetyManeuver && AnColorSenLeftVal<colorBorder){
+
+  if(!SafetyManeuver && DistToOb>10 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
     operationTime = millis();
+    actualManuverDurrations = millis() - operationTime ;
     SafetyManeuver = true;
-    executing = SafetyMove::TurnRight;
-    //Serial.println("Turning Right");
+    executing = SafetyMove::stepBack;                    // Inicjacja cofnięcia przed obrotem
+    if(AnColorSenLeftVal < colorBorder){AnLeftColorMemory = true;}
+    if(AnColorSenRightVal < colorBorder){AnRightColorMemory = true;}
+    Serial.println("stepBack before turn");
   }
-  if(!SafetyManeuver && AnColorSenRightVal<colorBorder){
+  if(SafetyManeuver && actualManuverDurrations>stepBackBeforeTurnTime && executing == SafetyMove::stepBack && AnLeftColorMemory){
     operationTime = millis();
-    SafetyManeuver = true;
-    executing = SafetyMove::TurnLeft;
-    //Serial.println(operationTime);    
+    actualManuverDurrations = millis() - operationTime ;
+    executing = SafetyMove::TurnRight;                  // Inicjacja skrętu w prawo
+    Serial.println("Turning Right");
+  }
+  if(SafetyManeuver && actualManuverDurrations>stepBackBeforeTurnTime && executing == SafetyMove::stepBack && AnRightColorMemory){
+    operationTime = millis();
+    actualManuverDurrations = millis() - operationTime ;
+    executing = SafetyMove::TurnLeft;                   // Inicjacja skrętu w lewo
+    Serial.println("Turning Left");    
   }
 }
 void chooseMovement(){
@@ -131,6 +151,9 @@ void chooseMovement(){
         forward();
         break;
       case SafetyMove::retreat:
+        back();
+        break;
+      case SafetyMove::stepBack:
         back();
         break;
     }
@@ -176,29 +199,29 @@ void stop(){
 void turnLeft(){
   mLback = true;
   mRback = false;
-  mLSpeed = 255;
-  mRSpeed = 255;
+  mLSpeed = maxSpeed;
+  mRSpeed = maxSpeed;
   //Serial.println("Turning Left...");    
 }
 void turnRight(){
   mLback = false;
   mRback = true;
-  mLSpeed = 255;
-  mRSpeed = 255;
+  mLSpeed = maxSpeed;
+  mRSpeed = maxSpeed;
 }
 void forward(){
   mLback = false;
   mRback = false;
-  mLSpeed = 255;
-  mRSpeed = 255;
-  Serial.println("Forward");
+  mLSpeed = maxSpeed;
+  mRSpeed = maxSpeed;
+  //Serial.println("Forward");
 }
 void back(){
   mLback = true;
   mRback = true;
-  mLSpeed = 255;
-  mRSpeed = 255;
-  Serial.println("Back");
+  mLSpeed = maxSpeed;
+  mRSpeed = maxSpeed;
+  //Serial.println("Back");
 }
 // ----- End Movement -----
 
