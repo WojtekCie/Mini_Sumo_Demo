@@ -28,15 +28,15 @@ int AnColorSenLeftVal = 0;            // Zmierzona wartość lewego czujnika kol
 int AnColorSenRightVal = 0;           // Zmierzona wartość prawego czujnika koloru
 int colorBorder = 500;                // Manualnie ustawiana granica od której robot odrużnia biały od czarnego (jeśli wartość zczytana jest mniejsza od granicy to biały)
 
-int TimeMultiplier = 3;               // Zmienna służąca do wydłużania czasów reakcji, pomocna w analizie jazdy robota
-int maxSpeed = 80;                   // Maksymalna prędkość z którą robot jedzie, można zmieniac podczas testów
+int TimeMultiplier = 1;               // Zmienna służąca do wydłużania czasów reakcji, pomocna w analizie jazdy robota
+int maxSpeed = 255;                   // Maksymalna prędkość z którą robot jedzie, można zmieniac podczas testów
 
 int turnTime = 400*TimeMultiplier;                   // Czas ile ma się obracać [ms]
-int minTurnTime = 300*TimeMultiplier;
-int maxTurnTime = 500*TimeMultiplier;
-int pushTime = 40*TimeMultiplier;
-int retreatTime = 400*TimeMultiplier;
-int stepBackBeforeTurnTime = 200*TimeMultiplier;
+int minTurnTime = 250*TimeMultiplier;
+int maxTurnTime = 400*TimeMultiplier;
+int pushTime = 10*TimeMultiplier;
+int retreatTime = 300*TimeMultiplier;
+int stepBackBeforeTurnTime = 180*TimeMultiplier;
 
 unsigned long  operationTime = 0;                // Zmienna urzywana do zliczania czasu wykonywania komendy [ms]
 bool buttonMemory = 0;                // Przycisk potrzebuje aż 3 zmienny aby działać w wymagany sposób (właczać dopiero po puszczeniu, wyłączać odrazu po kliknieciu)
@@ -111,7 +111,7 @@ void updateMovement(){
     executing = SafetyMove::retreat;             // Przechodzimy z pchnięcia na wycofanie
     Serial.println("retreat");
   }
-  if(!SafetyManeuver && DistToOb<10 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
+  if(!SafetyManeuver && DistToOb<8 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
     operationTime = millis();
     actualManuverDurrations = millis() - operationTime ;
     SafetyManeuver = true;
@@ -119,7 +119,7 @@ void updateMovement(){
     Serial.println("absolutePush");
   }
 
-  if(!SafetyManeuver && DistToOb>10 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
+  if(!SafetyManeuver && DistToOb>8 && (AnColorSenLeftVal<colorBorder || AnColorSenRightVal<colorBorder)){
     operationTime = millis();
     actualManuverDurrations = millis() - operationTime ;
     SafetyManeuver = true;
